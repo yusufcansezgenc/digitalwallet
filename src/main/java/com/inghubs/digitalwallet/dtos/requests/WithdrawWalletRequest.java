@@ -7,6 +7,7 @@ import com.inghubs.digitalwallet.utilities.validators.EnumValue;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,7 @@ public class WithdrawWalletRequest {
     private UUID walletId;
 
     @NotNull(message = "Amount cannot be null.")
+    @Positive(message = "Amount must be positive.")
     private Double amount;
 
     @EnumValue(enumClass = OppositePartyType.class, message = "Invalid opposite party type.")

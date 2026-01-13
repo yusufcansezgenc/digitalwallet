@@ -12,6 +12,7 @@ import com.inghubs.digitalwallet.repositories.CustomerRepository;
 import com.inghubs.digitalwallet.repositories.WalletRepository;
 import com.inghubs.digitalwallet.utilities.constants.WalletConstants;
 import com.inghubs.digitalwallet.utilities.enums.*;
+import com.inghubs.digitalwallet.utilities.exceptions.WithdrawalDeniedException;
 import com.inghubs.digitalwallet.utilities.mappers.CreateWalletMapper;
 
 import org.slf4j.Logger;
@@ -68,19 +69,17 @@ public class WalletService {
 
     public DepositWalletResponse DepositWallet(DepositWalletRequest request) {
         logger.info("Depositing to walletId: {}", request.getWalletId());
-        
+
         Wallet wallet = walletRepository.findById(request.getWalletId()).orElse(null);
         if (wallet == null) {
             logger.warn("Wallet with ID {} not found.", request.getWalletId());
             return null;
         }
-
-        // TODO: approval stage
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;
         if (request.getAmount() > WalletConstants.AMOUNT_LIMIT) {
             transactionStatus = TransactionStatus.PENDING;
         }
-        
+
         Transaction transaction = Transaction.builder()
                 .amount(request.getAmount())
                 .type(TransactionType.DEPOSIT)
@@ -89,6 +88,8 @@ public class WalletService {
                 .oppositeParty(request.getSource())
                 .oppositePartyType(request.getOppositePartyType())
                 .build();
+
+        this.ValidateWalletProcessing(wallet, transaction);        
 
         Transaction createdTransaction = transactionService.CreateTransaction(transaction);
         Wallet affectedWallet = walletRepository.findById(request.getWalletId()).orElse(null);
@@ -109,7 +110,6 @@ public class WalletService {
             return null;
         }
 
-        // TODO: approval stage
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;
         if (request.getAmount() > WalletConstants.AMOUNT_LIMIT) {
             transactionStatus = TransactionStatus.PENDING;
@@ -124,6 +124,8 @@ public class WalletService {
                 .oppositePartyType(request.getOppositePartyType())
                 .build();
 
+        this.ValidateWalletProcessing(wallet, transaction);
+         
         Transaction createdTransaction = transactionService.CreateTransaction(transaction);
         Wallet affectedWallet = walletRepository.findById(request.getWalletId()).orElse(null);
 
@@ -132,5 +134,22 @@ public class WalletService {
                 .wallet(affectedWallet)
                 .isPendingTransaction(transactionStatus == TransactionStatus.PENDING)
                 .build();
+    }
+
+    private void ValidateWalletProcessing(Wallet wallet, Transaction transaction) {
+
+        logger.info("Validating wallet ID {} for transaction ID {}", wallet.getId(), transaction.getId());
+
+        if(transaction.getType() == TransactionType.WITHDRAW && !wallet.getIsActiveWithdraw()) {
+            logger.info("Wallet ID {} with Transaction ID {} is not authorized for withdrawals.", wallet.getId(), transaction.getId());
+            throw new WithdrawalDeniedException("This wallet is not authorized for withdrawals.");
+        }
+
+        if ((transaction.getOppositePartyType() == OppositePartyType.PAYMENT
+                && transaction.getType() == TransactionType.WITHDRAW)
+                && !wallet.getIsActiveShopping()) {
+            logger.info("Wallet ID {} with Transaction ID {} is not authorized for shopping payments.", wallet.getId(), transaction.getId());
+            throw new WithdrawalDeniedException("This wallet is not authorized for shopping payments.");
+        }
     }
 }

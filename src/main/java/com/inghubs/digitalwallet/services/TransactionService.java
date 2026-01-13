@@ -13,6 +13,7 @@ import com.inghubs.digitalwallet.entities.Transaction;
 import com.inghubs.digitalwallet.entities.Wallet;
 import com.inghubs.digitalwallet.repositories.TransactionRepository;
 import com.inghubs.digitalwallet.repositories.WalletRepository;
+import com.inghubs.digitalwallet.utilities.enums.BalanceOperation;
 import com.inghubs.digitalwallet.utilities.enums.TransactionStatus;
 import com.inghubs.digitalwallet.utilities.enums.TransactionType;
 
@@ -41,7 +42,6 @@ public class TransactionService {
         Transaction savedTransaction = transactionRepository.save(transaction);
         logger.info("Transaction created with ID: {}", savedTransaction.getId());
 
-        //TODO: change balance
         this.CompletePendingTransaction(savedTransaction);
         return savedTransaction;
     }
@@ -61,7 +61,7 @@ public class TransactionService {
             logger.info("Completing transaction with transactionId: {}", request.getTransactionId());
             this.CompleteTransaction(transaction);
         } else if (request.getStatus() == TransactionStatus.DENIED) {
-            //TODO: Revert balance
+            this.RevertPendingTransaction(transaction);
         }
 
         logger.info("Updating status for transactionId: {}", request.getTransactionId());
@@ -87,45 +87,63 @@ public class TransactionService {
     }
 
     private Wallet CompletePendingTransaction(Transaction transaction) {
-        Wallet affectedWallet = walletRepository.findById(transaction.getWallet().getId())
-                .orElse(null);
+        return this.updateWalletBalance(transaction,
+                getBalanceOperation("COMPLETE_PENDING", transaction.getType()));
+    }
 
-        if (transaction.getType() == TransactionType.DEPOSIT) {
-            logger.info("Processing deposit for walletId: {}", transaction.getWallet().getId());
-            Double newBalance = affectedWallet.getBalance() + transaction.getAmount();
-            affectedWallet.setBalance(newBalance);
-            return walletRepository.save(affectedWallet);
-        } else if (transaction.getType() == TransactionType.WITHDRAW) {
-            logger.info("Processing withdrawal for walletId: {}", transaction.getWallet().getId());
-
-            Double newBalance = affectedWallet.getBalance() - transaction.getAmount();
-            affectedWallet.setBalance(newBalance);
-            return walletRepository.save(affectedWallet);
-        } else {
-            throw new IllegalArgumentException("Unsupported transaction type: " + transaction.getType());
-        }
+    private Wallet RevertPendingTransaction(Transaction transaction) {
+        return this.updateWalletBalance(transaction,
+                getBalanceOperation("REVERT_PENDING", transaction.getType()));
     }
 
     private Wallet CompleteTransaction(Transaction transaction) {
+        return this.updateWalletBalance(transaction,
+                getBalanceOperation("COMPLETE_APPROVED", transaction.getType()));
+    }
+
+    private BalanceOperation getBalanceOperation(String operationCategory, TransactionType type) {
+        return switch (operationCategory) {
+            case "COMPLETE_PENDING" -> type == TransactionType.DEPOSIT ? BalanceOperation.COMPLETE_PENDING_DEPOSIT
+                    : BalanceOperation.COMPLETE_PENDING_WITHDRAW;
+            case "REVERT_PENDING" -> type == TransactionType.DEPOSIT ? BalanceOperation.REVERT_PENDING_DEPOSIT
+                    : BalanceOperation.REVERT_PENDING_WITHDRAW;
+            case "COMPLETE_APPROVED" -> type == TransactionType.DEPOSIT ? BalanceOperation.COMPLETE_APPROVED_DEPOSIT
+                    : BalanceOperation.COMPLETE_APPROVED_WITHDRAW;
+            default -> throw new IllegalArgumentException("Unknown operation category: " + operationCategory);
+        };
+    }
+
+    private Wallet updateWalletBalance(Transaction transaction, BalanceOperation operation) {
         Wallet affectedWallet = walletRepository.findById(transaction.getWallet().getId())
                 .orElse(null);
 
-        if (transaction.getType() == TransactionType.DEPOSIT) {
-            logger.info("Processing deposit for walletId: {}", transaction.getWallet().getId());
-            Double newBalance = affectedWallet.getUsableBalance() + transaction.getAmount();
-            affectedWallet.setBalance(newBalance);
-            affectedWallet.setUsableBalance(newBalance);
-            return walletRepository.save(affectedWallet);
-        } else if (transaction.getType() == TransactionType.WITHDRAW) {
-            logger.info("Processing withdrawal for walletId: {}", transaction.getWallet().getId());
-
-            Double newBalance = affectedWallet.getUsableBalance() - transaction.getAmount();
-            affectedWallet.setBalance(newBalance);
-            affectedWallet.setUsableBalance(newBalance);
-            return walletRepository.save(affectedWallet);
-        } else {
-            throw new IllegalArgumentException("Unsupported transaction type: " + transaction.getType());
+        if (affectedWallet == null) {
+            logger.warn("Wallet with ID {} not found.", transaction.getWallet().getId());
+            return null;
         }
+
+        logger.info(operation.getLogMessage(), transaction.getWallet().getId());
+
+        Double amount = transaction.getAmount();
+
+        switch (operation) {
+            case COMPLETE_PENDING_DEPOSIT -> affectedWallet.setBalance(affectedWallet.getBalance() + amount);
+            case COMPLETE_PENDING_WITHDRAW -> affectedWallet.setBalance(affectedWallet.getBalance() - amount);
+            case REVERT_PENDING_DEPOSIT -> affectedWallet.setBalance(affectedWallet.getBalance() - amount);
+            case REVERT_PENDING_WITHDRAW -> affectedWallet.setBalance(affectedWallet.getBalance() + amount);
+            case COMPLETE_APPROVED_DEPOSIT -> {
+                Double newBalance = affectedWallet.getUsableBalance() + amount;
+                affectedWallet.setBalance(newBalance);
+                affectedWallet.setUsableBalance(newBalance);
+            }
+            case COMPLETE_APPROVED_WITHDRAW -> {
+                Double newBalance = affectedWallet.getUsableBalance() - amount;
+                affectedWallet.setBalance(newBalance);
+                affectedWallet.setUsableBalance(newBalance);
+            }
+        }
+
+        return walletRepository.save(affectedWallet);
     }
 
 }

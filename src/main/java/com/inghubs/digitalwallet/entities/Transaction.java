@@ -5,6 +5,7 @@ import java.util.UUID;
 import com.inghubs.digitalwallet.utilities.enums.*;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 @Entity
@@ -22,6 +23,7 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Wallet wallet;
 
+    @Positive
     private Double amount;
 
     @Enumerated(EnumType.STRING)

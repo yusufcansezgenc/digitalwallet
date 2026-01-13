@@ -3,6 +3,7 @@ package com.inghubs.digitalwallet.controllers;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 import java.util.UUID;
 
@@ -27,7 +28,7 @@ public class WalletController {
     @ApiResponse(responseCode = "200", description = "Wallet created successfully.")
     @ApiResponse(responseCode = "404", description = "Customer not found.")
     @PostMapping("/create")
-    public ResponseEntity<CreateWalletResponse> createWallet(@RequestBody CreateWalletRequest request) {
+    public ResponseEntity<CreateWalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request) {
         CreateWalletResponse response = walletService.CreateWallet(request);
         if (response == null) {
             return ResponseEntity.notFound().build();
@@ -50,10 +51,11 @@ public class WalletController {
     @Operation(summary = "Deposit money into a customer's wallet", description = "Deposits money into a customer's wallet.")
     @ApiResponse(responseCode = "200", description = "Money deposited successfully")
     @ApiResponse(responseCode = "202", description = "Money deposit request has been accepted for processing.")
+    @ApiResponse(responseCode = "400", description = "Validation failed.")
     @ApiResponse(responseCode = "403", description = "This customer is not authorized to perform this action.")
     @ApiResponse(responseCode = "404", description = "No wallet found for the customer.")
     @PostMapping("/deposit")
-    public ResponseEntity<DepositWalletResponse> depositWallet(@RequestBody DepositWalletRequest request) {
+    public ResponseEntity<DepositWalletResponse> depositWallet(@Valid @RequestBody DepositWalletRequest request) {
         DepositWalletResponse response = walletService.DepositWallet(request);
         if (response == null) {
             return ResponseEntity.notFound().build();
@@ -67,10 +69,11 @@ public class WalletController {
     @Operation(summary = "Withdraw money from a customer's wallet", description = "Withdraws money from a customer's wallet.")
     @ApiResponse(responseCode = "200", description = "Money withdrawn successfully")
     @ApiResponse(responseCode = "202", description = "Money withdraw request has been accepted for processing.")
+    @ApiResponse(responseCode = "400", description = "Validation failed.")
     @ApiResponse(responseCode = "403", description = "This customer is not authorized to perform this action.")
     @ApiResponse(responseCode = "404", description = "No wallet found for the customer.")
     @PostMapping("/withdraw")
-    public ResponseEntity<WithdrawWalletResponse> withdrawWallet(@RequestBody WithdrawWalletRequest request) {
+    public ResponseEntity<WithdrawWalletResponse> withdrawWallet(@Valid @RequestBody WithdrawWalletRequest request) {
         WithdrawWalletResponse response = walletService.WithdrawWallet(request);
         if (response == null) {
             return ResponseEntity.notFound().build();

@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
-public class EnumValidator implements ConstraintValidator<EnumValue, CharSequence>{
+public class EnumValidator implements ConstraintValidator<EnumValue, CharSequence> {
 
     private List<String> acceptedValues;
 
