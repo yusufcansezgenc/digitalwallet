@@ -1,0 +1,4 @@
+INSERT INTO customer (id, name, surname, TCKN) VALUES ('9ff06c7d07904de5b5a5f0584aa4255f', 'IngHubs', 'User1', '12345678901');
+INSERT INTO customer (id, name, surname, TCKN) VALUES ('0cce49aebba049aaa13859afdeeba061', 'IngHubs', 'Employee1', '10987654321');
+INSERT INTO wallet (id, customer_id, wallet_name, currency, is_active_shopping, is_active_withdraw, balance, usable_balance) VALUES ('8d79b0201d69481a8ffe3895f67a2d54', '9ff06c7d07904de5b5a5f0584aa4255f', 'User1 Wallet', 'TRY', true, true, 500.0, 500.0);
+INSERT INTO wallet (id, customer_id, wallet_name, currency, is_active_shopping, is_active_withdraw, balance, usable_balance) VALUES ('253a6a427be14c39983cd7131c2776df', '0cce49aebba049aaa13859afdeeba061', 'Employee1 Wallet', 'USD', true, true, 500.0, 500.0);
