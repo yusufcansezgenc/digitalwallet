@@ -74,6 +74,11 @@ public class TransactionServiceImpl implements TransactionService {
             this.CompleteTransaction(transaction);
         } else if (request.getStatus() == TransactionStatus.DENIED) {
             this.RevertPendingTransaction(transaction);
+        } else if (request.getStatus() == TransactionStatus.PENDING) {
+            logger.info("Transaction with transactionId: {} remains in PENDING status.", request.getTransactionId());
+            return ApproveTransactionResponse.builder()
+                    .transaction(transaction)
+                    .build();
         }
 
         logger.info("Updating status for transactionId: {}", request.getTransactionId());
