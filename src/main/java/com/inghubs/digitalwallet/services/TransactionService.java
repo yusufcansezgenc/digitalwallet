@@ -52,7 +52,7 @@ public class TransactionService {
 
         if(userDetails.getRole() != Role.EMPLOYEE) {
             logger.warn("User with ID {} is not authorized to approve/reject transactions.", userDetails.getId());
-            throw new SecurityException("Not authorized to approve/reject transactions.");
+            throw new SecurityException("Not authorized to approve/reject transactions. Must be an employee.");
         }
 
         Transaction transaction = transactionRepository.findById(request.getTransactionId())
@@ -61,6 +61,11 @@ public class TransactionService {
         if (transaction == null) {
             logger.warn("Transaction with ID {} not found.", request.getTransactionId());
             return null;
+        }
+
+        if(transaction.getStatus() != TransactionStatus.PENDING) {
+            logger.warn("Transaction with ID {} is not in PENDING status.", request.getTransactionId());
+            throw new IllegalStateException("Only PENDING transactions can be approved or denied.");
         }
 
         if (request.getStatus() == TransactionStatus.APPROVED) {
@@ -74,8 +79,12 @@ public class TransactionService {
         transaction.setStatus(request.getStatus());
         transaction = transactionRepository.save(transaction);
 
+        Wallet updatedWallet = walletRepository.findById(transaction.getWallet().getId())
+                .orElse(null);
+
         return ApproveTransactionResponse.builder()
                 .transaction(transaction)
+                .wallet(updatedWallet)
                 .build();
     }
 
@@ -91,7 +100,7 @@ public class TransactionService {
         boolean ownsWallet = userWallets.stream()
                 .anyMatch(wallet -> wallet.getId().equals(walletId));
 
-        if (!ownsWallet || userDetails.getRole() != Role.EMPLOYEE) {
+        if (!ownsWallet && userDetails.getRole() != Role.EMPLOYEE) {
             logger.warn("User with ID {} is not authorized to access transactions of wallet ID {}.", userDetails.getId(), walletId);
             throw new SecurityException("Not authorized to access transactions for this wallet.");
         }

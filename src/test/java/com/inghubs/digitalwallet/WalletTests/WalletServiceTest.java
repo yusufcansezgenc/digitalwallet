@@ -468,13 +468,13 @@ class WalletServiceTest {
     // ============== Security Tests ==============
 
     @Test
-    @DisplayName("Should throw SecurityException when non-EMPLOYEE user attempts withdraw")
-    void testWithdrawWallet_NonEmployeeUser_ThrowsSecurityException() {
+    @DisplayName("Should allow user to withdraw from own wallet")
+    void testWithdrawWallet_OwnWallet_WithdrawsSuccessfully() {
         // Arrange
-        CustomUserDetails nonEmployeeUser = CustomUserDetails.builder()
+        CustomUserDetails walletOwner = CustomUserDetails.builder()
                 .id(UUID.randomUUID())
                 .customerId(customerId)
-                .username("customer")
+                .username("owner")
                 .password("password")
                 .role(Role.CUSTOMER)
                 .build();
@@ -486,15 +486,33 @@ class WalletServiceTest {
                 .oppositePartyType(OppositePartyType.IBAN)
                 .build();
 
+        Transaction expectedTransaction = Transaction.builder()
+                .id(UUID.randomUUID())
+                .wallet(testWallet)
+                .amount(500.0)
+                .type(TransactionType.WITHDRAW)
+                .status(TransactionStatus.APPROVED)
+                .oppositeParty("Account XYZ")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
+        when(transactionService.CreateTransaction(any(Transaction.class))).thenReturn(expectedTransaction);
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
 
-        // Act & Assert
-        assertThrows(SecurityException.class, () -> walletService.WithdrawWallet(request, nonEmployeeUser));
+        // Act
+        WithdrawWalletResponse response = walletService.WithdrawWallet(request, walletOwner);
+
+        // Assert
+        assertNotNull(response);
+        assertFalse(response.getIsPendingTransaction());
+        assertEquals(TransactionStatus.APPROVED, response.getTransaction().getStatus());
+        verify(transactionService, times(1)).CreateTransaction(any(Transaction.class));
     }
 
     @Test
-    @DisplayName("Should throw SecurityException when user tries to access different customer's wallet")
-    void testWithdrawWallet_AccessOtherCustomerWallet_ThrowsSecurityException() {
+    @DisplayName("Should throw SecurityException when non-wallet-owner non-EMPLOYEE user tries to withdraw")
+    void testWithdrawWallet_NonOwnerNonEmployee_ThrowsSecurityException() {
         // Arrange
         UUID differentCustomerId = UUID.randomUUID();
         CustomUserDetails differentCustomerUser = CustomUserDetails.builder()
@@ -502,7 +520,7 @@ class WalletServiceTest {
                 .customerId(differentCustomerId)
                 .username("other_customer")
                 .password("password")
-                .role(Role.EMPLOYEE)
+                .role(Role.CUSTOMER)
                 .build();
 
         WithdrawWalletRequest request = WithdrawWalletRequest.builder()

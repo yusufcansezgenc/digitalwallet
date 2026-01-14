@@ -1,6 +1,8 @@
 package com.inghubs.digitalwallet.dtos.requests;
 
 
+import java.util.UUID;
+
 import com.inghubs.digitalwallet.utilities.enums.Currency;
 import com.inghubs.digitalwallet.utilities.validators.EnumValue;
 
@@ -27,4 +29,6 @@ public class CreateWalletRequest {
     
     @NotNull(message = "Withdraw status cannot be null.")
     private Boolean isActiveWithdraw;
+    
+    private UUID CustomerId;
 }

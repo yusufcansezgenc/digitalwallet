@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 
 @Service
 public class WalletService {
-    
+
     @Autowired
     private WalletRepository walletRepository;
     @Autowired
@@ -53,6 +53,14 @@ public class WalletService {
         if (customer == null) {
             logger.warn("Customer with ID {} not found.", userDetails.getId());
             return null;
+        }
+
+        if (request.getCustomerId() != null
+                && !request.getCustomerId().equals(userDetails.getCustomerId())
+                && !(userDetails.getRole() == Role.EMPLOYEE)) {
+            logger.warn("User with ID {} is not authorized to create wallet for customer ID {}.", userDetails.getId(),
+                    request.getCustomerId());
+            throw new SecurityException("Not authorized to create wallet for this customer.");
         }
 
         Wallet wallet = Wallet.builder()
@@ -93,7 +101,7 @@ public class WalletService {
                 .oppositePartyType(request.getOppositePartyType())
                 .build();
 
-        this.ValidateWalletProcessing(wallet, transaction);        
+        this.ValidateWalletProcessing(wallet, transaction);
 
         Transaction createdTransaction = transactionService.CreateTransaction(transaction);
         Wallet affectedWallet = walletRepository.findById(request.getWalletId()).orElse(null);
@@ -107,16 +115,18 @@ public class WalletService {
 
     public WithdrawWalletResponse WithdrawWallet(WithdrawWalletRequest request, CustomUserDetails userDetails) {
         logger.info("Withdrawing from walletId: {}", request.getWalletId());
-        
+
         Wallet wallet = walletRepository.findById(request.getWalletId()).orElse(null);
         if (wallet == null) {
             logger.warn("Wallet with ID {} not found.", request.getWalletId());
             throw new NotFoundException("No wallet found for the customer.");
         }
 
-        if(!wallet.getCustomer().getId().equals(userDetails.getCustomerId()) || !(userDetails.getRole() == Role.EMPLOYEE)) {
-            logger.warn("User with User ID {} is not authorized to withdraw from wallet ID {}.", userDetails.getId(), wallet.getId());
-            throw new SecurityException("This customer is not authorized to perform this action.");
+        if (!wallet.getCustomer().getId().equals(userDetails.getCustomerId())
+                && !(userDetails.getRole() == Role.EMPLOYEE)) {
+            logger.warn("User with User ID {} is not authorized to withdraw from wallet ID {}.", userDetails.getId(),
+                    wallet.getId());
+            throw new SecurityException("Not authorized to withdraw from this wallet.");
         }
 
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;
@@ -134,7 +144,7 @@ public class WalletService {
                 .build();
 
         this.ValidateWalletProcessing(wallet, transaction);
-         
+
         Transaction createdTransaction = transactionService.CreateTransaction(transaction);
         Wallet affectedWallet = walletRepository.findById(request.getWalletId()).orElse(null);
 
@@ -149,15 +159,17 @@ public class WalletService {
 
         logger.info("Validating wallet ID {} for transaction ID {}", wallet.getId(), transaction.getId());
 
-        if(transaction.getType() == TransactionType.WITHDRAW && !wallet.getIsActiveWithdraw()) {
-            logger.info("Wallet ID {} with Transaction ID {} is not authorized for withdrawals.", wallet.getId(), transaction.getId());
+        if (transaction.getType() == TransactionType.WITHDRAW && !wallet.getIsActiveWithdraw()) {
+            logger.info("Wallet ID {} with Transaction ID {} is not authorized for withdrawals.", wallet.getId(),
+                    transaction.getId());
             throw new WithdrawalDeniedException("This wallet is not authorized for withdrawals.");
         }
 
         if ((transaction.getOppositePartyType() == OppositePartyType.PAYMENT
                 && transaction.getType() == TransactionType.WITHDRAW)
                 && !wallet.getIsActiveShopping()) {
-            logger.info("Wallet ID {} with Transaction ID {} is not authorized for shopping payments.", wallet.getId(), transaction.getId());
+            logger.info("Wallet ID {} with Transaction ID {} is not authorized for shopping payments.", wallet.getId(),
+                    transaction.getId());
             throw new WithdrawalDeniedException("This wallet is not authorized for shopping payments.");
         }
     }

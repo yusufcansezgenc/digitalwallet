@@ -265,7 +265,7 @@ class TransactionServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals(TransactionStatus.DENIED, response.getTransaction().getStatus());
-        verify(walletRepository, times(1)).findById(walletId);
+        verify(walletRepository, atLeast(1)).findById(walletId);
     }
 
     @Test
@@ -681,25 +681,25 @@ class TransactionServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw SecurityException when accessing transactions of wallet not owned by user")
+    @DisplayName("Should throw SecurityException when non-EMPLOYEE user accesses wallet not owned")
     void testListTransactions_UnauthorizedWalletAccess_ThrowsSecurityException() {
         // Arrange
         UUID otherCustomerId = UUID.randomUUID();
         UUID otherWalletId = UUID.randomUUID();
 
-        CustomUserDetails differentCustomerUser = CustomUserDetails.builder()
+        CustomUserDetails nonEmployeeUser = CustomUserDetails.builder()
                 .id(UUID.randomUUID())
                 .customerId(otherCustomerId)
                 .username("other_customer")
                 .password("password")
-                .role(Role.EMPLOYEE)
+                .role(Role.CUSTOMER)
                 .build();
 
         when(walletRepository.existsById(otherWalletId)).thenReturn(true);
-        when(walletRepository.findByCustomerId(differentCustomerUser.getId())).thenReturn(new ArrayList<>());
+        when(walletRepository.findByCustomerId(nonEmployeeUser.getId())).thenReturn(new ArrayList<>());
 
         // Act & Assert
-        assertThrows(SecurityException.class, () -> transactionService.ListTransactions(otherWalletId, differentCustomerUser));
+        assertThrows(SecurityException.class, () -> transactionService.ListTransactions(otherWalletId, nonEmployeeUser));
     }
 
     @Test

@@ -3,15 +3,15 @@ A digital wallet service that allows users to create their wallets and deposit o
 
 Uses Java 25 and Spring Boot 4.
 
-### Capabilities
+### Capabilities & Development Features
 * Transaction system that allows employees to accept or decline deposit or withdrawal requests.
 * Wallet creation and exploring wallets.
 * Basic authentication and authorization system with JWT using Spring Security.
 * Comprehensive logging.
 * Unit tests for main business logic.
 
-### Running and Testing
-You can use Maven or run the app straight with Docker under DigitalWallet folder using command (Must have Docker or Maven installed):
+### Running & Testing
+You can use Maven or run the app straight with Docker under digitalwallet folder using command (Must have Docker or Maven installed):
 ```
 mvn spring-boot:run
 or
@@ -33,7 +33,7 @@ username: sa
 password: password
 ```
 
-You will require to login and get your JWT token for basic security, there is no registration capability so you need to use existing accounts:
+You will require to login and get your JWT token for basic security, you can either use a client (Postman, Insomnia etc.) or use 'Authorize' button on Swagger page to use the JWT provided by login, there is no registration capability so you need to use existing accounts:
 ```
 username: Customer1User
 password: password
