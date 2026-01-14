@@ -36,7 +36,7 @@ class TransactionServiceTest {
     private WalletRepository walletRepository;
 
     @InjectMocks
-    private TransactionService transactionService;
+    private TransactionServiceImpl transactionService;
 
     private UUID customerId;
     private UUID walletId;
