@@ -6,6 +6,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.inghubs.digitalwallet.interceptors.LoggingInterceptor;
 
+//TODO: AuthN and AuthZ
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 

@@ -10,16 +10,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.UUID;
-
 
 @Data
 @AllArgsConstructor
 @Builder
 public class CreateWalletRequest {
-
-    @NotNull(message = "Customer ID cannot be null.")
-    private UUID customerId;
 
     @NotBlank(message = "Wallet name cannot be blank.")
     private String walletName;

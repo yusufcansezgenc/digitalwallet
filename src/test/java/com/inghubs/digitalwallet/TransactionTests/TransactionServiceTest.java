@@ -22,6 +22,8 @@ import com.inghubs.digitalwallet.entities.*;
 import com.inghubs.digitalwallet.repositories.*;
 import com.inghubs.digitalwallet.services.*;
 import com.inghubs.digitalwallet.utilities.enums.*;
+import com.inghubs.digitalwallet.utilities.exceptions.NotFoundException;
+import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Transaction Service Tests")
@@ -42,6 +44,7 @@ class TransactionServiceTest {
     private Customer testCustomer;
     private Wallet testWallet;
     private Transaction testTransaction;
+    private CustomUserDetails testUserDetails;
 
     @BeforeEach
     void setUp() {
@@ -51,15 +54,15 @@ class TransactionServiceTest {
 
         testCustomer = Customer.builder()
                 .id(customerId)
-                .name("John")
-                .surname("Doe")
+                .name("Name")
+                .surname("Surname")
                 .TCKN("12345678901")
                 .build();
 
         testWallet = Wallet.builder()
                 .id(walletId)
                 .customer(testCustomer)
-                .walletName("Main Wallet")
+                .walletName("Wallet")
                 .currency(Currency.TRY)
                 .balance(5000.0)
                 .usableBalance(5000.0)
@@ -75,6 +78,14 @@ class TransactionServiceTest {
                 .status(TransactionStatus.PENDING)
                 .oppositeParty("Bank Transfer")
                 .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        testUserDetails = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("testuser")
+                .password("password")
+                .role(Role.EMPLOYEE)
                 .build();
     }
 
@@ -104,11 +115,8 @@ class TransactionServiceTest {
         // Arrange
         when(walletRepository.existsById(walletId)).thenReturn(false);
 
-        // Act
-        Transaction result = transactionService.CreateTransaction(testTransaction);
-
-        // Assert
-        assertNull(result);
+        // Act & Assert
+        assertThrows(NotFoundException.class, () -> transactionService.CreateTransaction(testTransaction));
         verify(walletRepository, times(1)).existsById(walletId);
         verify(transactionRepository, never()).save(any());
     }
@@ -207,7 +215,7 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(approvedTransaction);
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -252,7 +260,7 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(deniedTransaction);
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -272,7 +280,7 @@ class TransactionServiceTest {
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.empty());
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNull(response);
@@ -326,7 +334,7 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(approvedDeposit);
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -370,7 +378,7 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(deniedDeposit);
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -413,7 +421,7 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(deniedWithdraw);
 
         // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request);
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -441,10 +449,11 @@ class TransactionServiceTest {
         transactionList.add(transaction2);
 
         when(walletRepository.existsById(walletId)).thenReturn(true);
+        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
         when(transactionRepository.findByWalletId(walletId)).thenReturn(transactionList);
 
         // Act
-        ListTransactionsResponse response = transactionService.ListTransactions(walletId);
+        ListTransactionsResponse response = transactionService.ListTransactions(walletId, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -460,10 +469,11 @@ class TransactionServiceTest {
     void testListTransactions_NoTransactions_ReturnsEmptyList() {
         // Arrange
         when(walletRepository.existsById(walletId)).thenReturn(true);
+        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
         when(transactionRepository.findByWalletId(walletId)).thenReturn(new ArrayList<>());
 
         // Act
-        ListTransactionsResponse response = transactionService.ListTransactions(walletId);
+        ListTransactionsResponse response = transactionService.ListTransactions(walletId, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -477,11 +487,8 @@ class TransactionServiceTest {
         // Arrange
         when(walletRepository.existsById(walletId)).thenReturn(false);
 
-        // Act
-        ListTransactionsResponse response = transactionService.ListTransactions(walletId);
-
-        // Assert
-        assertNull(response);
+        // Act & Assert
+        assertThrows(NotFoundException.class, () -> transactionService.ListTransactions(walletId, testUserDetails));
         verify(walletRepository, times(1)).existsById(walletId);
         verify(transactionRepository, never()).findByWalletId(any());
     }
@@ -626,10 +633,165 @@ class TransactionServiceTest {
         when(transactionRepository.save(any(Transaction.class))).thenReturn(approvedDeposit);
 
         // Act
-        transactionService.ApproveTransaction(request);
+        transactionService.ApproveTransaction(request, testUserDetails);
 
         // Assert
         Wallet savedWallet = walletCaptor.getValue();
         assertEquals(initialBalance + depositAmount, savedWallet.getUsableBalance());
     }
+
+    // ============== Security Tests ==============
+
+    @Test
+    @DisplayName("Should throw SecurityException when non-EMPLOYEE user attempts to approve transaction")
+    void testApproveTransaction_NonEmployeeUser_ThrowsSecurityException() {
+        // Arrange
+        CustomUserDetails nonEmployeeUser = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("customer")
+                .password("password")
+                .role(Role.CUSTOMER)
+                .build();
+
+        ApproveTransactionRequest request = ApproveTransactionRequest.builder()
+                .transactionId(transactionId)
+                .status(TransactionStatus.APPROVED)
+                .build();
+
+        // Act & Assert
+        assertThrows(SecurityException.class, () -> transactionService.ApproveTransaction(request, nonEmployeeUser));
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw SecurityException when non-EMPLOYEE user attempts to list all transactions")
+    void testListAllTransactions_NonEmployeeUser_ThrowsSecurityException() {
+        // Arrange
+        CustomUserDetails nonEmployeeUser = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("customer")
+                .password("password")
+                .role(Role.CUSTOMER)
+                .build();
+
+        // Act & Assert
+        assertThrows(SecurityException.class, () -> transactionService.ListTransactions(nonEmployeeUser));
+    }
+
+    @Test
+    @DisplayName("Should throw SecurityException when accessing transactions of wallet not owned by user")
+    void testListTransactions_UnauthorizedWalletAccess_ThrowsSecurityException() {
+        // Arrange
+        UUID otherCustomerId = UUID.randomUUID();
+        UUID otherWalletId = UUID.randomUUID();
+
+        CustomUserDetails differentCustomerUser = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(otherCustomerId)
+                .username("other_customer")
+                .password("password")
+                .role(Role.EMPLOYEE)
+                .build();
+
+        when(walletRepository.existsById(otherWalletId)).thenReturn(true);
+        when(walletRepository.findByCustomerId(differentCustomerUser.getId())).thenReturn(new ArrayList<>());
+
+        // Act & Assert
+        assertThrows(SecurityException.class, () -> transactionService.ListTransactions(otherWalletId, differentCustomerUser));
+    }
+
+    @Test
+    @DisplayName("Should allow EMPLOYEE user with wallet ownership to list wallet transactions")
+    void testListTransactions_AuthorizedEmployee_ReturnsTransactions() {
+        // Arrange
+        List<Transaction> transactionList = new ArrayList<>();
+        transactionList.add(testTransaction);
+
+        when(walletRepository.existsById(walletId)).thenReturn(true);
+        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
+        when(transactionRepository.findByWalletId(walletId)).thenReturn(transactionList);
+
+        // Act
+        ListTransactionsResponse response = transactionService.ListTransactions(walletId, testUserDetails);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(1, response.getTransactions().size());
+        verify(transactionRepository, times(1)).findByWalletId(walletId);
+    }
+
+    @Test
+    @DisplayName("Should allow EMPLOYEE user to approve transaction")
+    void testApproveTransaction_AuthorizedEmployee_ApprovesSuccessfully() {
+        // Arrange
+        ApproveTransactionRequest request = ApproveTransactionRequest.builder()
+                .transactionId(transactionId)
+                .status(TransactionStatus.APPROVED)
+                .build();
+
+        Transaction pendingTransaction = Transaction.builder()
+                .id(transactionId)
+                .wallet(testWallet)
+                .amount(500.0)
+                .type(TransactionType.DEPOSIT)
+                .status(TransactionStatus.PENDING)
+                .oppositeParty("Bank Transfer")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        Transaction approvedTransaction = Transaction.builder()
+                .id(transactionId)
+                .wallet(testWallet)
+                .amount(500.0)
+                .type(TransactionType.DEPOSIT)
+                .status(TransactionStatus.APPROVED)
+                .oppositeParty("Bank Transfer")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(pendingTransaction));
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
+        when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(approvedTransaction);
+
+        // Act
+        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(TransactionStatus.APPROVED, response.getTransaction().getStatus());
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    @Test
+    @DisplayName("Should allow EMPLOYEE user to list all transactions")
+    void testListAllTransactions_AuthorizedEmployee_ReturnsAllTransactions() {
+        // Arrange
+        List<Transaction> allTransactions = new ArrayList<>();
+        allTransactions.add(testTransaction);
+
+        when(transactionRepository.findAll()).thenReturn(allTransactions);
+
+        // Act
+        ListTransactionsResponse response = transactionService.ListTransactions(testUserDetails);
+
+        // Assert
+        assertNotNull(response);
+        assertFalse(response.getTransactions().isEmpty());
+        verify(transactionRepository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("Should throw NotFoundException when wallet not found during list transactions")
+    void testListTransactions_WalletNotFound_ThrowsNotFoundException() {
+        // Arrange
+        when(walletRepository.existsById(walletId)).thenReturn(false);
+
+        // Act & Assert
+        assertThrows(NotFoundException.class, () -> transactionService.ListTransactions(walletId, testUserDetails));
+        verify(transactionRepository, never()).findByWalletId(any());
+    }
 }
+

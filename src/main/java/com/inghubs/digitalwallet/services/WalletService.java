@@ -3,6 +3,7 @@ package com.inghubs.digitalwallet.services;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.inghubs.digitalwallet.dtos.requests.*;
@@ -12,31 +13,24 @@ import com.inghubs.digitalwallet.repositories.CustomerRepository;
 import com.inghubs.digitalwallet.repositories.WalletRepository;
 import com.inghubs.digitalwallet.utilities.constants.WalletConstants;
 import com.inghubs.digitalwallet.utilities.enums.*;
+import com.inghubs.digitalwallet.utilities.exceptions.NotFoundException;
 import com.inghubs.digitalwallet.utilities.exceptions.WithdrawalDeniedException;
-import com.inghubs.digitalwallet.utilities.mappers.CreateWalletMapper;
+import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
 public class WalletService {
-
-    private final WalletRepository walletRepository;
-    private final CustomerRepository customerRepository;
-    private final CreateWalletMapper createWalletMapper;
-    private final TransactionService transactionService;
+    
+    @Autowired
+    private WalletRepository walletRepository;
+    @Autowired
+    private CustomerRepository customerRepository;
+    @Autowired
+    private TransactionService transactionService;
 
     private static final Logger logger = LoggerFactory.getLogger(WalletService.class);
-
-    public WalletService(WalletRepository walletRepository,
-            CreateWalletMapper createWalletMapper,
-            CustomerRepository customerRepository,
-            TransactionService transactionService) {
-        this.walletRepository = walletRepository;
-        this.createWalletMapper = createWalletMapper;
-        this.customerRepository = customerRepository;
-        this.transactionService = transactionService;
-    }
 
     public ListWalletResponse ListWallets(UUID customerId) {
         logger.info("Listing wallets for customerId: {}", customerId);
@@ -52,15 +46,24 @@ public class WalletService {
                 .build();
     }
 
-    public CreateWalletResponse CreateWallet(CreateWalletRequest request) {
-        logger.info("Creating wallet for customerId: {}", request.getCustomerId());
+    public CreateWalletResponse CreateWallet(CreateWalletRequest request, CustomUserDetails userDetails) {
+        logger.info("Creating wallet for customerId: {}", userDetails.getId());
 
-        if (!customerRepository.existsById(request.getCustomerId())) {
-            logger.warn("Customer with ID {} not found.", request.getCustomerId());
+        Customer customer = customerRepository.findById(userDetails.getId()).orElse(null);
+        if (customer == null) {
+            logger.warn("Customer with ID {} not found.", userDetails.getId());
             return null;
         }
 
-        Wallet response = walletRepository.save(createWalletMapper.toEntity(request));
+        Wallet wallet = Wallet.builder()
+                .customer(customer)
+                .walletName(request.getWalletName())
+                .currency(request.getCurrency())
+                .isActiveWithdraw(request.getIsActiveWithdraw())
+                .isActiveShopping(request.getIsActiveShopping())
+                .build();
+
+        Wallet response = walletRepository.save(wallet);
 
         return CreateWalletResponse.builder()
                 .wallet(response)
@@ -75,6 +78,7 @@ public class WalletService {
             logger.warn("Wallet with ID {} not found.", request.getWalletId());
             return null;
         }
+
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;
         if (request.getAmount() > WalletConstants.AMOUNT_LIMIT) {
             transactionStatus = TransactionStatus.PENDING;
@@ -101,13 +105,18 @@ public class WalletService {
                 .build();
     }
 
-    public WithdrawWalletResponse WithdrawWallet(WithdrawWalletRequest request) {
+    public WithdrawWalletResponse WithdrawWallet(WithdrawWalletRequest request, CustomUserDetails userDetails) {
         logger.info("Withdrawing from walletId: {}", request.getWalletId());
-
+        
         Wallet wallet = walletRepository.findById(request.getWalletId()).orElse(null);
         if (wallet == null) {
             logger.warn("Wallet with ID {} not found.", request.getWalletId());
-            return null;
+            throw new NotFoundException("No wallet found for the customer.");
+        }
+
+        if(!wallet.getCustomer().getId().equals(userDetails.getCustomerId()) || !(userDetails.getRole() == Role.EMPLOYEE)) {
+            logger.warn("User with User ID {} is not authorized to withdraw from wallet ID {}.", userDetails.getId(), wallet.getId());
+            throw new SecurityException("This customer is not authorized to perform this action.");
         }
 
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;

@@ -2,6 +2,7 @@ package com.inghubs.digitalwallet.entities;
 
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.inghubs.digitalwallet.utilities.enums.*;
 
 import jakarta.persistence.*;
@@ -19,7 +20,8 @@ public class Wallet {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Customer customer;
 
     private String walletName;

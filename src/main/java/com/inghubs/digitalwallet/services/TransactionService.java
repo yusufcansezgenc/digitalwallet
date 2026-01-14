@@ -1,9 +1,11 @@
 package com.inghubs.digitalwallet.services;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.inghubs.digitalwallet.dtos.requests.ApproveTransactionRequest;
@@ -14,29 +16,28 @@ import com.inghubs.digitalwallet.entities.Wallet;
 import com.inghubs.digitalwallet.repositories.TransactionRepository;
 import com.inghubs.digitalwallet.repositories.WalletRepository;
 import com.inghubs.digitalwallet.utilities.enums.BalanceOperation;
+import com.inghubs.digitalwallet.utilities.enums.Role;
 import com.inghubs.digitalwallet.utilities.enums.TransactionStatus;
 import com.inghubs.digitalwallet.utilities.enums.TransactionType;
+import com.inghubs.digitalwallet.utilities.exceptions.NotFoundException;
+import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 @Service
 public class TransactionService {
 
-    private final TransactionRepository transactionRepository;
-    private final WalletRepository walletRepository;
+    @Autowired
+    private TransactionRepository transactionRepository;
+    @Autowired
+    private WalletRepository walletRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
-
-    public TransactionService(TransactionRepository transactionRepository,
-            WalletRepository walletRepository) {
-        this.transactionRepository = transactionRepository;
-        this.walletRepository = walletRepository;
-    }
 
     public Transaction CreateTransaction(Transaction transaction) {
         logger.info("Creating transaction for walletId: {}", transaction.getWallet().getId());
 
         if (!walletRepository.existsById(transaction.getWallet().getId())) {
             logger.warn("Wallet with ID {} not found.", transaction.getWallet().getId());
-            return null;
+            throw new NotFoundException("Wallet not found.");
         }
 
         Transaction savedTransaction = transactionRepository.save(transaction);
@@ -46,8 +47,13 @@ public class TransactionService {
         return savedTransaction;
     }
 
-    public ApproveTransactionResponse ApproveTransaction(ApproveTransactionRequest request) {
+    public ApproveTransactionResponse ApproveTransaction(ApproveTransactionRequest request, CustomUserDetails userDetails) {
         logger.info("Approving transaction with transactionId: {}", request.getTransactionId());
+
+        if(userDetails.getRole() != Role.EMPLOYEE) {
+            logger.warn("User with ID {} is not authorized to approve/reject transactions.", userDetails.getId());
+            throw new SecurityException("Not authorized to approve/reject transactions.");
+        }
 
         Transaction transaction = transactionRepository.findById(request.getTransactionId())
                 .orElse(null);
@@ -73,16 +79,38 @@ public class TransactionService {
                 .build();
     }
 
-    public ListTransactionsResponse ListTransactions(UUID walletId) {
+    public ListTransactionsResponse ListTransactions(UUID walletId, CustomUserDetails userDetails) {
         logger.info("Listing transactions for walletId: {}", walletId);
 
         if (!walletRepository.existsById(walletId)) {
             logger.warn("Wallet with ID {} not found.", walletId);
-            return null;
+            throw new NotFoundException("Wallet not found.");
+        }
+
+        List<Wallet> userWallets = walletRepository.findByCustomerId(userDetails.getId());
+        boolean ownsWallet = userWallets.stream()
+                .anyMatch(wallet -> wallet.getId().equals(walletId));
+
+        if (!ownsWallet || userDetails.getRole() != Role.EMPLOYEE) {
+            logger.warn("User with ID {} is not authorized to access transactions of wallet ID {}.", userDetails.getId(), walletId);
+            throw new SecurityException("Not authorized to access transactions for this wallet.");
         }
 
         return ListTransactionsResponse.builder()
                 .transactions(transactionRepository.findByWalletId(walletId))
+                .build();
+    }
+
+    public ListTransactionsResponse ListTransactions(CustomUserDetails userDetails) {
+        if(userDetails.getRole() != Role.EMPLOYEE) {
+            logger.warn("User with ID {} is not authorized to list all transactions.", userDetails.getId());
+            throw new SecurityException("Not authorized to list all transactions.");
+        }
+
+        logger.info("Listing all transactions");
+
+        return ListTransactionsResponse.builder()
+                .transactions(transactionRepository.findAll())
                 .build();
     }
 

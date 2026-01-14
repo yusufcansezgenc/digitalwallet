@@ -12,4 +12,5 @@ import com.inghubs.digitalwallet.entities.Transaction;
 public interface TransactionRepository extends CrudRepository<Transaction, UUID> {
     
     List<Transaction> findByWalletId(UUID walletId);
+    List<Transaction> findAll();
 }

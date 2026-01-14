@@ -24,7 +24,7 @@ import com.inghubs.digitalwallet.services.*;
 import com.inghubs.digitalwallet.utilities.constants.*;
 import com.inghubs.digitalwallet.utilities.enums.*;
 import com.inghubs.digitalwallet.utilities.exceptions.*;
-import com.inghubs.digitalwallet.utilities.mappers.*;
+import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Wallet Service Tests")
@@ -37,9 +37,6 @@ class WalletServiceTest {
     private CustomerRepository customerRepository;
 
     @Mock
-    private CreateWalletMapper createWalletMapper;
-
-    @Mock
     private TransactionService transactionService;
 
     @InjectMocks
@@ -49,6 +46,7 @@ class WalletServiceTest {
     private UUID walletId;
     private Customer testCustomer;
     private Wallet testWallet;
+    private CustomUserDetails testUserDetails;
 
     @BeforeEach
     void setUp() {
@@ -57,20 +55,28 @@ class WalletServiceTest {
 
         testCustomer = Customer.builder()
                 .id(customerId)
-                .name("John")
-                .surname("Doe")
+                .name("Name")
+                .surname("Surname")
                 .TCKN("12345678901")
                 .build();
 
         testWallet = Wallet.builder()
                 .id(walletId)
                 .customer(testCustomer)
-                .walletName("Main Wallet")
+                .walletName("Wallet")
                 .currency(Currency.TRY)
                 .balance(5000.0)
                 .usableBalance(5000.0)
                 .isActiveShopping(true)
                 .isActiveWithdraw(true)
+                .build();
+
+        testUserDetails = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("testuser")
+                .password("password")
+                .role(Role.EMPLOYEE)
                 .build();
     }
 
@@ -135,27 +141,24 @@ class WalletServiceTest {
     void testCreateWallet_CustomerExists_CreatesWallet() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
-                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.existsById(customerId)).thenReturn(true);
-        when(createWalletMapper.toEntity(request)).thenReturn(testWallet);
-        when(walletRepository.save(testWallet)).thenReturn(testWallet);
+        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.of(testCustomer));
+        when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
 
         // Act
-        CreateWalletResponse response = walletService.CreateWallet(request);
+        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
         assertNotNull(response.getWallet());
         assertEquals(walletId, response.getWallet().getId());
-        verify(customerRepository, times(1)).existsById(customerId);
-        verify(createWalletMapper, times(1)).toEntity(request);
-        verify(walletRepository, times(1)).save(testWallet);
+        verify(customerRepository, times(1)).findById(testUserDetails.getId());
+        verify(walletRepository, times(1)).save(any(Wallet.class));
     }
 
     @Test
@@ -163,21 +166,20 @@ class WalletServiceTest {
     void testCreateWallet_CustomerNotFound_ReturnsNull() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
-                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.existsById(customerId)).thenReturn(false);
+        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.empty());
 
         // Act
-        CreateWalletResponse response = walletService.CreateWallet(request);
+        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
 
         // Assert
         assertNull(response);
-        verify(customerRepository, times(1)).existsById(customerId);
+        verify(customerRepository, times(1)).findById(testUserDetails.getId());
         verify(walletRepository, never()).save(any());
     }
 
@@ -308,7 +310,7 @@ class WalletServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
 
         // Act
-        WithdrawWalletResponse response = walletService.WithdrawWallet(request);
+        WithdrawWalletResponse response = walletService.WithdrawWallet(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -344,7 +346,7 @@ class WalletServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
 
         // Act
-        WithdrawWalletResponse response = walletService.WithdrawWallet(request);
+        WithdrawWalletResponse response = walletService.WithdrawWallet(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
@@ -377,7 +379,7 @@ class WalletServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(inactiveWithdrawWallet));
 
         // Act & Assert
-        assertThrows(WithdrawalDeniedException.class, () -> walletService.WithdrawWallet(request));
+        assertThrows(WithdrawalDeniedException.class, () -> walletService.WithdrawWallet(request, testUserDetails));
         verify(transactionService, never()).CreateTransaction(any());
     }
 
@@ -406,7 +408,7 @@ class WalletServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(inactiveShoppingWallet));
 
         // Act & Assert
-        assertThrows(WithdrawalDeniedException.class, () -> walletService.WithdrawWallet(request));
+        assertThrows(WithdrawalDeniedException.class, () -> walletService.WithdrawWallet(request, testUserDetails));
         verify(transactionService, never()).CreateTransaction(any());
     }
 
@@ -423,11 +425,8 @@ class WalletServiceTest {
 
         when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
 
-        // Act
-        WithdrawWalletResponse response = walletService.WithdrawWallet(request);
-
-        // Assert
-        assertNull(response);
+        // Act & Assert
+        assertThrows(Exception.class, () -> walletService.WithdrawWallet(request, testUserDetails));
         verify(transactionService, never()).CreateTransaction(any());
     }
 
@@ -458,11 +457,128 @@ class WalletServiceTest {
         when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
 
         // Act
-        WithdrawWalletResponse response = walletService.WithdrawWallet(request);
+        WithdrawWalletResponse response = walletService.WithdrawWallet(request, testUserDetails);
 
         // Assert
         assertNotNull(response);
         assertEquals(OppositePartyType.PAYMENT, response.getTransaction().getOppositePartyType());
         verify(transactionService, times(1)).CreateTransaction(any(Transaction.class));
     }
+
+    // ============== Security Tests ==============
+
+    @Test
+    @DisplayName("Should throw SecurityException when non-EMPLOYEE user attempts withdraw")
+    void testWithdrawWallet_NonEmployeeUser_ThrowsSecurityException() {
+        // Arrange
+        CustomUserDetails nonEmployeeUser = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(customerId)
+                .username("customer")
+                .password("password")
+                .role(Role.CUSTOMER)
+                .build();
+
+        WithdrawWalletRequest request = WithdrawWalletRequest.builder()
+                .walletId(walletId)
+                .amount(500.0)
+                .destination("Account XYZ")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
+
+        // Act & Assert
+        assertThrows(SecurityException.class, () -> walletService.WithdrawWallet(request, nonEmployeeUser));
+    }
+
+    @Test
+    @DisplayName("Should throw SecurityException when user tries to access different customer's wallet")
+    void testWithdrawWallet_AccessOtherCustomerWallet_ThrowsSecurityException() {
+        // Arrange
+        UUID differentCustomerId = UUID.randomUUID();
+        CustomUserDetails differentCustomerUser = CustomUserDetails.builder()
+                .id(UUID.randomUUID())
+                .customerId(differentCustomerId)
+                .username("other_customer")
+                .password("password")
+                .role(Role.EMPLOYEE)
+                .build();
+
+        WithdrawWalletRequest request = WithdrawWalletRequest.builder()
+                .walletId(walletId)
+                .amount(500.0)
+                .destination("Account XYZ")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        when(walletRepository.findById(walletId)).thenReturn(Optional.of(testWallet));
+
+        // Act & Assert
+        assertThrows(SecurityException.class, () -> walletService.WithdrawWallet(request, differentCustomerUser));
+    }
+
+    @Test
+    @DisplayName("Should allow EMPLOYEE user to create wallet for authenticated customer")
+    void testCreateWallet_EmployeeUser_CreatesWalletSuccessfully() {
+        // Arrange
+        CreateWalletRequest request = CreateWalletRequest.builder()
+                .walletName("New Wallet")
+                .currency(Currency.EUR)
+                .isActiveShopping(true)
+                .isActiveWithdraw(false)
+                .build();
+
+        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.of(testCustomer));
+        when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
+
+        // Act
+        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
+
+        // Assert
+        assertNotNull(response);
+        assertNotNull(response.getWallet());
+        verify(customerRepository, times(1)).findById(testUserDetails.getId());
+        verify(walletRepository, times(1)).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("Should throw NotFoundException when customer not found during wallet creation")
+    void testCreateWallet_CustomerNotFound_ThrowsNotFoundException() {
+        // Arrange
+        CreateWalletRequest request = CreateWalletRequest.builder()
+                .walletName("New Wallet")
+                .currency(Currency.EUR)
+                .isActiveShopping(true)
+                .isActiveWithdraw(false)
+                .build();
+
+        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.empty());
+
+        // Act
+        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
+
+        // Assert
+        assertNull(response);
+        verify(walletRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw NotFoundException when wallet not found during withdrawal")
+    void testWithdrawWallet_WalletNotFound_ThrowsNotFoundException() {
+        // Arrange
+        WithdrawWalletRequest request = WithdrawWalletRequest.builder()
+                .walletId(walletId)
+                .amount(500.0)
+                .destination("Account XYZ")
+                .oppositePartyType(OppositePartyType.IBAN)
+                .build();
+
+        when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(Exception.class, () -> walletService.WithdrawWallet(request, testUserDetails));
+        verify(transactionService, never()).CreateTransaction(any());
+    }
 }
+

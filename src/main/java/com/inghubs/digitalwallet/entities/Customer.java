@@ -22,4 +22,7 @@ public class Customer {
     private String surname;
 
     private String TCKN;
+
+    @OneToOne(mappedBy = "customer")
+    private User user;
 }

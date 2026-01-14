@@ -15,6 +15,20 @@ public class GlobalExceptionHandler {
                 .body(exception.getMessage());
     }
 
+    @ExceptionHandler({SecurityException.class})
+    public ResponseEntity<Object> handleSecurityException(SecurityException exception) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(exception.getMessage());
+    }
+
+    @ExceptionHandler({NotFoundException.class})
+    public ResponseEntity<Object> handleNotFoundException(NotFoundException exception) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(exception.getMessage());
+    }
+
     @ExceptionHandler({RuntimeException.class})
     public ResponseEntity<Object> handleRuntimeException(RuntimeException exception) {
         return ResponseEntity
