@@ -9,12 +9,10 @@ import org.springframework.stereotype.Service;
 import com.inghubs.digitalwallet.dtos.requests.*;
 import com.inghubs.digitalwallet.dtos.responses.*;
 import com.inghubs.digitalwallet.entities.*;
-import com.inghubs.digitalwallet.repositories.CustomerRepository;
-import com.inghubs.digitalwallet.repositories.WalletRepository;
+import com.inghubs.digitalwallet.repositories.*;
 import com.inghubs.digitalwallet.utilities.constants.WalletConstants;
 import com.inghubs.digitalwallet.utilities.enums.*;
-import com.inghubs.digitalwallet.utilities.exceptions.NotFoundException;
-import com.inghubs.digitalwallet.utilities.exceptions.WithdrawalDeniedException;
+import com.inghubs.digitalwallet.utilities.exceptions.*;
 import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 import org.slf4j.Logger;
@@ -37,7 +35,7 @@ public class WalletService {
 
         if (!customerRepository.existsById(customerId)) {
             logger.warn("Customer with ID {} not found.", customerId);
-            return null;
+            throw new NotFoundException("Customer not found.");
         }
 
         List<Wallet> wallets = walletRepository.findByCustomerId(customerId);
@@ -47,12 +45,12 @@ public class WalletService {
     }
 
     public CreateWalletResponse CreateWallet(CreateWalletRequest request, CustomUserDetails userDetails) {
-        logger.info("Creating wallet for customerId: {}", userDetails.getId());
+        logger.info("Creating wallet for customerId: {}", request.getCustomerId());
 
-        Customer customer = customerRepository.findById(userDetails.getId()).orElse(null);
+        Customer customer = customerRepository.findById(request.getCustomerId()).orElse(null);
         if (customer == null) {
-            logger.warn("Customer with ID {} not found.", userDetails.getId());
-            return null;
+            logger.warn("Customer with ID {} not found.", request.getCustomerId());
+            throw new NotFoundException("Customer not found.");
         }
 
         if (request.getCustomerId() != null
@@ -84,7 +82,7 @@ public class WalletService {
         Wallet wallet = walletRepository.findById(request.getWalletId()).orElse(null);
         if (wallet == null) {
             logger.warn("Wallet with ID {} not found.", request.getWalletId());
-            return null;
+            throw new NotFoundException("Wallet not found.");
         }
 
         TransactionStatus transactionStatus = TransactionStatus.APPROVED;

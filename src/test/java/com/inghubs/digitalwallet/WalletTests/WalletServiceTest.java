@@ -104,16 +104,13 @@ class WalletServiceTest {
     }
 
     @Test
-    @DisplayName("Should return null when customer does not exist")
-    void testListWallets_CustomerNotFound_ReturnsNull() {
+    @DisplayName("Should throw not found exception when customer does not exist")
+    void testListWallets_CustomerNotFound_ThrowsNotFoundException() {
         // Arrange
         when(customerRepository.existsById(customerId)).thenReturn(false);
 
-        // Act
-        ListWalletResponse response = walletService.ListWallets(customerId);
-
         // Assert
-        assertNull(response);
+        assertThrows(NotFoundException.class, () -> walletService.ListWallets(customerId));
         verify(customerRepository, times(1)).existsById(customerId);
         verify(walletRepository, never()).findByCustomerId(any());
     }
@@ -141,13 +138,14 @@ class WalletServiceTest {
     void testCreateWallet_CustomerExists_CreatesWallet() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
+                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.of(testCustomer));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(testCustomer));
         when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
 
         // Act
@@ -157,29 +155,27 @@ class WalletServiceTest {
         assertNotNull(response);
         assertNotNull(response.getWallet());
         assertEquals(walletId, response.getWallet().getId());
-        verify(customerRepository, times(1)).findById(testUserDetails.getId());
+        verify(customerRepository, times(1)).findById(customerId);
         verify(walletRepository, times(1)).save(any(Wallet.class));
     }
 
     @Test
-    @DisplayName("Should return null when customer does not exist")
+    @DisplayName("Should throw NotFoundException when customer does not exist")
     void testCreateWallet_CustomerNotFound_ReturnsNull() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
+                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.empty());
+        when(customerRepository.findById(customerId)).thenReturn(Optional.empty());
 
-        // Act
-        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
-
-        // Assert
-        assertNull(response);
-        verify(customerRepository, times(1)).findById(testUserDetails.getId());
+        // Act & Assert
+        assertThrows(NotFoundException.class, () -> walletService.CreateWallet(request, testUserDetails));
+        verify(customerRepository, times(1)).findById(customerId);
         verify(walletRepository, never()).save(any());
     }
 
@@ -272,11 +268,8 @@ class WalletServiceTest {
 
         when(walletRepository.findById(walletId)).thenReturn(Optional.empty());
 
-        // Act
-        DepositWalletResponse response = walletService.DepositWallet(request);
-
         // Assert
-        assertNull(response);
+         assertThrows(NotFoundException.class, () -> walletService.DepositWallet(request));
         verify(walletRepository, times(1)).findById(walletId);
         verify(transactionService, never()).CreateTransaction(any());
     }
@@ -541,13 +534,14 @@ class WalletServiceTest {
     void testCreateWallet_EmployeeUser_CreatesWalletSuccessfully() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
+                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.of(testCustomer));
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(testCustomer));
         when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
 
         // Act
@@ -556,7 +550,7 @@ class WalletServiceTest {
         // Assert
         assertNotNull(response);
         assertNotNull(response.getWallet());
-        verify(customerRepository, times(1)).findById(testUserDetails.getId());
+        verify(customerRepository, times(1)).findById(customerId);
         verify(walletRepository, times(1)).save(any(Wallet.class));
     }
 
@@ -565,19 +559,17 @@ class WalletServiceTest {
     void testCreateWallet_CustomerNotFound_ThrowsNotFoundException() {
         // Arrange
         CreateWalletRequest request = CreateWalletRequest.builder()
+                .customerId(customerId)
                 .walletName("New Wallet")
                 .currency(Currency.EUR)
                 .isActiveShopping(true)
                 .isActiveWithdraw(false)
                 .build();
 
-        when(customerRepository.findById(testUserDetails.getId())).thenReturn(Optional.empty());
+        when(customerRepository.findById(customerId)).thenReturn(Optional.empty());
 
-        // Act
-        CreateWalletResponse response = walletService.CreateWallet(request, testUserDetails);
-
-        // Assert
-        assertNull(response);
+        // Act & Assert
+        assertThrows(NotFoundException.class, () -> walletService.CreateWallet(request, testUserDetails));
         verify(walletRepository, never()).save(any());
     }
 

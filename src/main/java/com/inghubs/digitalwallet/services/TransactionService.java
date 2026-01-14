@@ -8,17 +8,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.inghubs.digitalwallet.dtos.requests.ApproveTransactionRequest;
-import com.inghubs.digitalwallet.dtos.responses.ApproveTransactionResponse;
-import com.inghubs.digitalwallet.dtos.responses.ListTransactionsResponse;
-import com.inghubs.digitalwallet.entities.Transaction;
-import com.inghubs.digitalwallet.entities.Wallet;
-import com.inghubs.digitalwallet.repositories.TransactionRepository;
-import com.inghubs.digitalwallet.repositories.WalletRepository;
-import com.inghubs.digitalwallet.utilities.enums.BalanceOperation;
-import com.inghubs.digitalwallet.utilities.enums.Role;
-import com.inghubs.digitalwallet.utilities.enums.TransactionStatus;
-import com.inghubs.digitalwallet.utilities.enums.TransactionType;
+import com.inghubs.digitalwallet.dtos.requests.*;
+import com.inghubs.digitalwallet.dtos.responses.*;
+import com.inghubs.digitalwallet.entities.*;
+import com.inghubs.digitalwallet.repositories.*;
+import com.inghubs.digitalwallet.utilities.enums.*;
 import com.inghubs.digitalwallet.utilities.exceptions.NotFoundException;
 import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
@@ -34,7 +28,7 @@ public class TransactionService {
 
     public Transaction CreateTransaction(Transaction transaction) {
         logger.info("Creating transaction for walletId: {}", transaction.getWallet().getId());
-
+        
         if (!walletRepository.existsById(transaction.getWallet().getId())) {
             logger.warn("Wallet with ID {} not found.", transaction.getWallet().getId());
             throw new NotFoundException("Wallet not found.");
@@ -65,7 +59,7 @@ public class TransactionService {
 
         if (transaction == null) {
             logger.warn("Transaction with ID {} not found.", request.getTransactionId());
-            return null;
+            throw new NotFoundException("Transaction not found.");
         }
 
         if(transaction.getStatus() != TransactionStatus.PENDING) {
@@ -173,16 +167,8 @@ public class TransactionService {
             case COMPLETE_PENDING_WITHDRAW -> affectedWallet.setBalance(affectedWallet.getBalance() - amount);
             case REVERT_PENDING_DEPOSIT -> affectedWallet.setBalance(affectedWallet.getBalance() - amount);
             case REVERT_PENDING_WITHDRAW -> affectedWallet.setBalance(affectedWallet.getBalance() + amount);
-            case COMPLETE_APPROVED_DEPOSIT -> {
-                Double newBalance = affectedWallet.getUsableBalance() + amount;
-                affectedWallet.setBalance(newBalance);
-                affectedWallet.setUsableBalance(newBalance);
-            }
-            case COMPLETE_APPROVED_WITHDRAW -> {
-                Double newBalance = affectedWallet.getUsableBalance() - amount;
-                affectedWallet.setBalance(newBalance);
-                affectedWallet.setUsableBalance(newBalance);
-            }
+            case COMPLETE_APPROVED_DEPOSIT -> affectedWallet.setUsableBalance(affectedWallet.getUsableBalance() + amount);
+            case COMPLETE_APPROVED_WITHDRAW -> affectedWallet.setUsableBalance(affectedWallet.getUsableBalance() - amount);
         }
 
         return walletRepository.save(affectedWallet);

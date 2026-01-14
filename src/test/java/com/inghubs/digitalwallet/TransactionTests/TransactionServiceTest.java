@@ -269,8 +269,8 @@ class TransactionServiceTest {
     }
 
     @Test
-    @DisplayName("Should return null when transaction does not exist")
-    void testApproveTransaction_TransactionNotFound_ReturnsNull() {
+    @DisplayName("Should throw not found exception when transaction does not exist")
+    void testApproveTransaction_TransactionNotFound_ThrowsNotFoundException() {
         // Arrange
         ApproveTransactionRequest request = ApproveTransactionRequest.builder()
                 .transactionId(transactionId)
@@ -279,11 +279,8 @@ class TransactionServiceTest {
 
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.empty());
 
-        // Act
-        ApproveTransactionResponse response = transactionService.ApproveTransaction(request, testUserDetails);
-
         // Assert
-        assertNull(response);
+        assertThrows(NotFoundException.class, () -> transactionService.ApproveTransaction(request, testUserDetails));
         verify(transactionRepository, times(1)).findById(transactionId);
         verify(transactionRepository, never()).save(any());
     }
@@ -482,7 +479,7 @@ class TransactionServiceTest {
     }
 
     @Test
-    @DisplayName("Should return null when wallet does not exist")
+    @DisplayName("Should throw not found exception when wallet does not exist")
     void testListTransactions_WalletNotFound_ReturnsNull() {
         // Arrange
         when(walletRepository.existsById(walletId)).thenReturn(false);
@@ -494,92 +491,6 @@ class TransactionServiceTest {
     }
 
     // ============== Balance Operation Tests ==============
-
-    @Test
-    @DisplayName("Should update balance correctly for completed pending deposit")
-    void testBalanceUpdate_CompletedPendingDeposit_UpdatesBalance() {
-        // Arrange
-        double initialBalance = 5000.0;
-        double depositAmount = 500.0;
-
-        Wallet wallet = Wallet.builder()
-                .id(walletId)
-                .customer(testCustomer)
-                .walletName("Main Wallet")
-                .currency(Currency.TRY)
-                .balance(initialBalance)
-                .usableBalance(initialBalance)
-                .isActiveShopping(true)
-                .isActiveWithdraw(true)
-                .build();
-
-        Transaction pendingDeposit = Transaction.builder()
-                .id(transactionId)
-                .wallet(wallet)
-                .amount(depositAmount)
-                .type(TransactionType.DEPOSIT)
-                .status(TransactionStatus.APPROVED)
-                .oppositeParty("Bank")
-                .oppositePartyType(OppositePartyType.IBAN)
-                .build();
-
-        when(walletRepository.existsById(walletId)).thenReturn(true);
-        when(transactionRepository.save(pendingDeposit)).thenReturn(pendingDeposit);
-        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
-
-        ArgumentCaptor<Wallet> walletCaptor = ArgumentCaptor.forClass(Wallet.class);
-        when(walletRepository.save(walletCaptor.capture())).thenReturn(wallet);
-
-        // Act
-        transactionService.CreateTransaction(pendingDeposit);
-
-        // Assert
-        Wallet savedWallet = walletCaptor.getValue();
-        assertEquals(initialBalance + depositAmount, savedWallet.getBalance());
-    }
-
-    @Test
-    @DisplayName("Should update balance correctly for completed pending withdrawal")
-    void testBalanceUpdate_CompletedPendingWithdraw_UpdatesBalance() {
-        // Arrange
-        double initialBalance = 5000.0;
-        double withdrawAmount = 800.0;
-
-        Wallet wallet = Wallet.builder()
-                .id(walletId)
-                .customer(testCustomer)
-                .walletName("Main Wallet")
-                .currency(Currency.TRY)
-                .balance(initialBalance)
-                .usableBalance(initialBalance)
-                .isActiveShopping(true)
-                .isActiveWithdraw(true)
-                .build();
-
-        Transaction pendingWithdraw = Transaction.builder()
-                .id(transactionId)
-                .wallet(wallet)
-                .amount(withdrawAmount)
-                .type(TransactionType.WITHDRAW)
-                .status(TransactionStatus.APPROVED)
-                .oppositeParty("Account XYZ")
-                .oppositePartyType(OppositePartyType.IBAN)
-                .build();
-
-        when(walletRepository.existsById(walletId)).thenReturn(true);
-        when(transactionRepository.save(pendingWithdraw)).thenReturn(pendingWithdraw);
-        when(walletRepository.findById(walletId)).thenReturn(Optional.of(wallet));
-
-        ArgumentCaptor<Wallet> walletCaptor = ArgumentCaptor.forClass(Wallet.class);
-        when(walletRepository.save(walletCaptor.capture())).thenReturn(wallet);
-
-        // Act
-        transactionService.CreateTransaction(pendingWithdraw);
-
-        // Assert
-        Wallet savedWallet = walletCaptor.getValue();
-        assertEquals(initialBalance - withdrawAmount, savedWallet.getBalance());
-    }
 
     @Test
     @DisplayName("Should update usable balance for approved deposit")

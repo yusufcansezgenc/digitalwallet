@@ -30,5 +30,5 @@ public class CreateWalletRequest {
     @NotNull(message = "Withdraw status cannot be null.")
     private Boolean isActiveWithdraw;
     
-    private UUID CustomerId;
+    private UUID customerId;
 }
