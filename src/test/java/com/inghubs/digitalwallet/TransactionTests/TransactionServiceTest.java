@@ -449,7 +449,7 @@ class TransactionServiceTest {
         transactionList.add(transaction2);
 
         when(walletRepository.existsById(walletId)).thenReturn(true);
-        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
+        when(walletRepository.findByCustomerId(testUserDetails.getCustomerId())).thenReturn(List.of(testWallet));
         when(transactionRepository.findByWalletId(walletId)).thenReturn(transactionList);
 
         // Act
@@ -469,7 +469,7 @@ class TransactionServiceTest {
     void testListTransactions_NoTransactions_ReturnsEmptyList() {
         // Arrange
         when(walletRepository.existsById(walletId)).thenReturn(true);
-        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
+        when(walletRepository.findByCustomerId(testUserDetails.getCustomerId())).thenReturn(List.of(testWallet));
         when(transactionRepository.findByWalletId(walletId)).thenReturn(new ArrayList<>());
 
         // Act
@@ -696,7 +696,7 @@ class TransactionServiceTest {
                 .build();
 
         when(walletRepository.existsById(otherWalletId)).thenReturn(true);
-        when(walletRepository.findByCustomerId(nonEmployeeUser.getId())).thenReturn(new ArrayList<>());
+        when(walletRepository.findByCustomerId(nonEmployeeUser.getCustomerId())).thenReturn(new ArrayList<>());
 
         // Act & Assert
         assertThrows(SecurityException.class, () -> transactionService.ListTransactions(otherWalletId, nonEmployeeUser));
@@ -710,7 +710,7 @@ class TransactionServiceTest {
         transactionList.add(testTransaction);
 
         when(walletRepository.existsById(walletId)).thenReturn(true);
-        when(walletRepository.findByCustomerId(testUserDetails.getId())).thenReturn(List.of(testWallet));
+        when(walletRepository.findByCustomerId(testUserDetails.getCustomerId())).thenReturn(List.of(testWallet));
         when(transactionRepository.findByWalletId(walletId)).thenReturn(transactionList);
 
         // Act

@@ -43,7 +43,12 @@ public class TransactionService {
         Transaction savedTransaction = transactionRepository.save(transaction);
         logger.info("Transaction created with ID: {}", savedTransaction.getId());
 
-        this.CompletePendingTransaction(savedTransaction);
+        if(savedTransaction.getStatus() == TransactionStatus.APPROVED) {
+            this.CompleteTransaction(savedTransaction);
+        } 
+        else if(savedTransaction.getStatus() == TransactionStatus.PENDING) {
+            this.CompletePendingTransaction(savedTransaction);
+        }
         return savedTransaction;
     }
 
@@ -96,7 +101,7 @@ public class TransactionService {
             throw new NotFoundException("Wallet not found.");
         }
 
-        List<Wallet> userWallets = walletRepository.findByCustomerId(userDetails.getId());
+        List<Wallet> userWallets = walletRepository.findByCustomerId(userDetails.getCustomerId());
         boolean ownsWallet = userWallets.stream()
                 .anyMatch(wallet -> wallet.getId().equals(walletId));
 
@@ -113,7 +118,7 @@ public class TransactionService {
     public ListTransactionsResponse ListTransactions(CustomUserDetails userDetails) {
         if(userDetails.getRole() != Role.EMPLOYEE) {
             logger.warn("User with ID {} is not authorized to list all transactions.", userDetails.getId());
-            throw new SecurityException("Not authorized to list all transactions.");
+            throw new SecurityException("Not authorized to list all transactions. Must be an employee.");
         }
 
         logger.info("Listing all transactions");
