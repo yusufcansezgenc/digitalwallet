@@ -7,7 +7,7 @@ import com.inghubs.digitalwallet.dtos.responses.*;
 import com.inghubs.digitalwallet.utilities.security.CustomUserDetails;
 
 public interface WalletService {
-    ListWalletResponse ListWallets(UUID customerId);
+    ListWalletResponse ListWallets(UUID customerId, CustomUserDetails userDetails);
     CreateWalletResponse CreateWallet(CreateWalletRequest request, CustomUserDetails userDetails);
     DepositWalletResponse DepositWallet(DepositWalletRequest request);
     WithdrawWalletResponse WithdrawWallet(WithdrawWalletRequest request, CustomUserDetails userDetails);

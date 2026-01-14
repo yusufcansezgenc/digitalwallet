@@ -31,8 +31,16 @@ public class WalletServiceImpl implements WalletService {
     private static final Logger logger = LoggerFactory.getLogger(WalletServiceImpl.class);
 
     @Override
-    public ListWalletResponse ListWallets(UUID customerId) {
+    public ListWalletResponse ListWallets(UUID customerId, CustomUserDetails userDetails) {
         logger.info("Listing wallets for customerId: {}", customerId);
+
+        if (userDetails.getCustomerId() != null
+                && !userDetails.getCustomerId().equals(customerId)
+                && !(userDetails.getRole() == Role.EMPLOYEE)) {
+            logger.warn("User with ID {} is not authorized to view wallets for customer ID {}.", userDetails.getId(),
+                    customerId);
+            throw new SecurityException("Not authorized to view wallets for this customer.");
+        }
 
         if (!customerRepository.existsById(customerId)) {
             logger.warn("Customer with ID {} not found.", customerId);
@@ -113,7 +121,7 @@ public class WalletServiceImpl implements WalletService {
                 .isPendingTransaction(transactionStatus == TransactionStatus.PENDING)
                 .build();
     }
-    
+
     @Override
     public WithdrawWalletResponse WithdrawWallet(WithdrawWalletRequest request, CustomUserDetails userDetails) {
         logger.info("Withdrawing from walletId: {}", request.getWalletId());

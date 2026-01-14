@@ -42,8 +42,10 @@ public class WalletController {
     @ApiResponse(responseCode = "403", description = "This customer is not authorized to perform this action.")
     @ApiResponse(responseCode = "404", description = "Customer not found.")
     @GetMapping("/{customerId}")
-    public ResponseEntity<ListWalletResponse> listWallets(@PathVariable UUID customerId) {
-        ListWalletResponse response = walletService.ListWallets(customerId);
+    public ResponseEntity<ListWalletResponse> listWallets(@PathVariable UUID customerId, Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        ListWalletResponse response = walletService.ListWallets(customerId, userDetails);
         return ResponseEntity.ok(response);
     }
 
